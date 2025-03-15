@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>密码强度检查器</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+      color: #333;
+    }
+    
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    
+    .container {
+      background-color: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .input-group {
+      margin-bottom: 20px;
+    }
+    
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    
+    .strength-meter {
+      height: 10px;
+      background-color: #eee;
+      border-radius: 5px;
+      margin: 20px 0;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    .strength-meter-fill {
+      height: 100%;
+      border-radius: 5px;
+      transition: width 0.5s ease-in-out, background-color 0.5s ease-in-out;
+      width: 0;
+      background-color: #e74c3c;
+    }
+    
+    .strength-text {
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    
+    .criteria {
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 5px;
+      margin-top: 20px;
+    }
+    
+    .criteria ul {
+      list-style-type: none;
+      padding-left: 5px;
+    }
+    
+    .criteria li {
+      margin: 8px 0;
+      position: relative;
+      padding-left: 25px;
+    }
+    
+    .icon {
+      position: absolute;
+      left: 0;
+      top: 2px;
+      width: 18px;
+      height: 18px;
+      text-align: center;
+      line-height: 18px;
+      border-radius: 50%;
+      font-size: 12px;
+      color: white;
+    }
+    
+    .passed {
+      background-color: #2ecc71;
+    }
+    
+    .failed {
+      background-color: #e74c3c;
+    }
+    
+    .toggle-password {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      color: #777;
+    }
+    
+    .password-container {
+      position: relative;
+    }
+    
+    .feedback-section {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>密码强度检查器</h1>
+    
+    <div class="input-group">
+      <div class="password-container">
+        <input type="password" id="password" placeholder="请输入密码..." autocomplete="off">
+        <button type="button" class="toggle-password" id="togglePassword">👁️</button>
+      </div>
+    </div>
+    
+    <div class="strength-meter">
+      <div class="strength-meter-fill" id="strengthMeter"></div>
+    </div>
+    
+    <div class="strength-text" id="strengthText">未输入密码</div>
+    
+    <div class="criteria">
+      <h3>密码强度标准：</h3>
+      <ul>
+        <li id="length"><span class="icon failed">✕</span> 至少8个字符</li>
+        <li id="uppercase"><span class="icon failed">✕</span> 包含大写字母</li>
+        <li id="lowercase"><span class="icon failed">✕</span> 包含小写字母</li>
+        <li id="numbers"><span class="icon failed">✕</span> 包含数字</li>
+        <li id="special"><span class="icon failed">✕</span> 包含特殊字符</li>
+      </ul>
+    </div>
+    
+    <div class="feedback-section">
+      <h3>密码安全建议：</h3>
+      <p id="feedback">请输入密码以获取安全建议。</p>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const passwordInput = document.getElementById('password');
+      const strengthMeter = document.getElementById('strengthMeter');
+      const strengthText = document.getElementById('strengthText');
+      const togglePassword = document.getElementById('togglePassword');
+      const feedbackElement = document.getElementById('feedback');
+      
+      // 密码可见性切换
+      togglePassword.addEventListener('click', function() {
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+        togglePassword.textContent = type === 'password' ? '👁️' : '🔒';
+      });
+      
+      // 密码强度检查
+      passwordInput.addEventListener('input', checkPasswordStrength);
+      
+      function checkPasswordStrength() {
+        const password = passwordInput.value;
+        
+        if (!password) {
+          updateStrengthMeter(0, '未输入密码');
+          updateCriteria({
+            length: false,
+            uppercase: false,
+            lowercase: false,
+            numbers: false,
+            special: false
+          });
+          feedbackElement.textContent = '请输入密码以获取安全建议。';
+          return;
+        }
+        
+        // 检查各项标准
+        const criteria = {
+          length: password.length >= 8,
+          uppercase: /[A-Z]/.test(password),
+          lowercase: /[a-z]/.test(password),
+          numbers: /[0-9]/.test(password),
+          special: /[^A-Za-z0-9]/.test(password)
+        };
+        
+        // 更新视觉标记
+        updateCriteria(criteria);
+        
+        // 计算得分 (0-100)
+        let score = 0;
+        
+        // 基本长度得分
+        if (password.length >= 8) score += 20;
+        else score += (password.length / 8) * 20;
+        
+        // 字符类型得分
+        if (criteria.uppercase) score += 20;
+        if (criteria.lowercase) score += 20;
+        if (criteria.numbers) score += 20;
+        if (criteria.special) score += 20;
+        
+        // 额外奖励分数：更长的密码
+        if (password.length >= 12) score += 10;
+        if (password.length >= 16) score += 10;
+        
+        // 确保得分不超过100
+        score = Math.min(score, 100);
+        
+        // 根据得分确定强度级别
+        let strengthLevel = '';
+        let color = '';
+        
+        if (score < 30) {
+          strengthLevel = '非常弱';
+          color = '#e74c3c'; // 红色
+          feedbackElement.textContent = '这个密码很容易被破解。请使用更长、更复杂的密码。';
+        } else if (score < 50) {
+          strengthLevel = '弱';
+          color = '#e67e22'; // 橙色
+          feedbackElement.textContent = '这个密码还不够强。尝试添加大写字母、数字和特殊符号。';
+        } else if (score < 70) {
+          strengthLevel = '中等';
+          color = '#f1c40f'; // 黄色
+          feedbackElement.textContent = '不错的开始，但可以更强。考虑使用更长的密码或增加其复杂性。';
+        } else if (score < 90) {
+          strengthLevel = '强';
+          color = '#3498db'; // 蓝色
+          feedbackElement.textContent = '这是一个强密码。确保您能记住它或使用密码管理器存储它。';
+        } else {
+          strengthLevel = '非常强';
+          color = '#2ecc71'; // 绿色
+          feedbackElement.textContent = 'excellent！这是一个非常强的密码。确保安全地存储它。';
+        }
+        
+        updateStrengthMeter(score, `密码强度：${strengthLevel} (${Math.round(score)}分)`, color);
+      }
+      
+      function updateStrengthMeter(score, text, color = '#e74c3c') {
+        strengthText.textContent = text;
+        strengthMeter.style.width = score + '%';
+        strengthMeter.style.backgroundColor = color;
+      }
+      
+      function updateCriteria(criteria) {
+        for (const [criterion, passed] of Object.entries(criteria)) {
+          const element = document.getElementById(criterion);
+          const icon = element.querySelector('.icon');
+          
+          if (passed) {
+            icon.classList.remove('failed');
+            icon.classList.add('passed');
+            icon.textContent = '✓';
+          } else {
+            icon.classList.remove('passed');
+            icon.classList.add('failed');
+            icon.textContent = '✕';
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
